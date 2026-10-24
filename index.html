@@ -19,7 +19,13 @@ const BAKER_EMAIL = "galaxygoodies420@gmail.com";
 //   "mailto"     – opens the customer's own email app with the order filled in.
 const SEND_METHOD = "formsubmit";
 
-// The menu. Add, remove, or change lines. Keep the commas between items.
+// Google Sheet menu (recommended). Paste the sheet's "Publish to web" CSV link
+// between the quotes and the menu below is replaced by whatever is in the sheet.
+// Leave it as "" to use the menu below instead. See README.md for setup.
+const MENU_SHEET_URL = "";
+
+// Backup menu – used when MENU_SHEET_URL is empty or the sheet can't be loaded.
+// Add, remove, or change lines. Keep the commas between items.
 //   name   – item name
 //   desc   – short description (optional, use "" for none)
 //   dose   – potency per piece (optional, use "" for none)
@@ -160,34 +166,93 @@ const NOTE_AT_TOP ="Orders are for adults 21+ only. We'll confirm your order and
 <script>
   const $ = id => document.getElementById(id);
   const money = n => CURRENCY + n.toFixed(2);
-  const qtys = MENU.map(() => 0);
+  let menu = MENU;
+  let qtys = [];
 
   $("mission").textContent = MISSION;
   $("topNote").textContent = NOTE_AT_TOP;
 
-  // Build the menu from the MENU list above
   const menuEl = $("menu");
-  MENU.forEach((it, i) => {
-    const row = document.createElement("div");
-    row.className = "item" + (it.soldOut ? " sold" : "");
-    const meta = [it.desc, it.dose].filter(Boolean).join(" · ");
-    row.innerHTML = `
-      <div class="info">
-        <div class="name"></div>
-        <div class="meta"></div>
-      </div>
-      <div class="price">${money(it.price)} <span class="meta">/ ${it.unit || "each"}</span></div>
-      ${it.soldOut
-        ? '<span class="sold-tag">Sold out</span>'
-        : `<div class="qty">
-             <button type="button" data-i="${i}" data-d="-1" aria-label="Less">−</button>
-             <input type="number" min="0" max="${MAX_QTY_PER_ITEM}" value="0" data-i="${i}" aria-label="Quantity">
-             <button type="button" data-i="${i}" data-d="1" aria-label="More">+</button>
-           </div>`}`;
-    row.querySelector(".name").textContent = it.name;
-    row.querySelector(".info .meta").textContent = meta;
-    menuEl.appendChild(row);
-  });
+  function renderMenu() {
+    qtys = menu.map(() => 0);
+    menuEl.innerHTML = "";
+    menu.forEach((it, i) => {
+      const row = document.createElement("div");
+      row.className = "item" + (it.soldOut ? " sold" : "");
+      const meta = [it.desc, it.dose].filter(Boolean).join(" · ");
+      row.innerHTML = `
+        <div class="info">
+          <div class="name"></div>
+          <div class="meta"></div>
+        </div>
+        <div class="price">${money(it.price)} <span class="meta unit"></span></div>
+        ${it.soldOut
+          ? '<span class="sold-tag">Sold out</span>'
+          : `<div class="qty">
+               <button type="button" data-i="${i}" data-d="-1" aria-label="Less">−</button>
+               <input type="number" min="0" max="${MAX_QTY_PER_ITEM}" value="0" data-i="${i}" aria-label="Quantity">
+               <button type="button" data-i="${i}" data-d="1" aria-label="More">+</button>
+             </div>`}`;
+      row.querySelector(".name").textContent = it.name;
+      row.querySelector(".info .meta").textContent = meta;
+      row.querySelector(".unit").textContent = "/ " + (it.unit || "each");
+      menuEl.appendChild(row);
+    });
+    refresh();
+  }
+
+  // --- Google Sheet menu -------------------------------------------------
+  // Columns (header row, any order): Name, Description, Dose, Price, Unit, Sold Out
+  function parseCsv(text) {
+    const rows = [[]];
+    let field = "", quoted = false;
+    for (let i = 0; i < text.length; i++) {
+      const c = text[i];
+      if (quoted) {
+        if (c === '"' && text[i + 1] === '"') { field += '"'; i++; }
+        else if (c === '"') quoted = false;
+        else field += c;
+      } else if (c === '"') quoted = true;
+      else if (c === ",") { rows[rows.length - 1].push(field); field = ""; }
+      else if (c === "\n") { rows[rows.length - 1].push(field); field = ""; rows.push([]); }
+      else if (c !== "\r") field += c;
+    }
+    rows[rows.length - 1].push(field);
+    return rows;
+  }
+  function sheetCsvUrl(url) {
+    // Accept a normal sheet link too, as long as it's shared "Anyone with the link".
+    const m = url.match(/\/spreadsheets\/d\/([\w-]{20,})/);
+    return m ? `https://docs.google.com/spreadsheets/d/${m[1]}/gviz/tq?tqx=out:csv` : url;
+  }
+  async function loadSheetMenu() {
+    const res = await fetch(sheetCsvUrl(MENU_SHEET_URL), { cache: "no-store" });
+    if (!res.ok) throw new Error("Sheet returned " + res.status);
+    const [header, ...rows] = parseCsv(await res.text());
+    const col = names => header.findIndex(h => names.includes(h.trim().toLowerCase()));
+    const c = {
+      name: col(["name", "item"]),
+      desc: col(["description", "desc"]),
+      dose: col(["dose", "potency"]),
+      price: col(["price"]),
+      unit: col(["unit"]),
+      sold: col(["sold out", "soldout", "sold"]),
+    };
+    if (c.name < 0 || c.price < 0) throw new Error("Sheet needs Name and Price columns");
+    const get = (r, k) => (c[k] >= 0 ? (r[c[k]] || "").trim() : "");
+    const items = rows
+      .map(r => ({
+        name: get(r, "name"),
+        desc: get(r, "desc"),
+        dose: get(r, "dose"),
+        price: parseFloat(get(r, "price").replace(/[^0-9.]/g, "")),
+        unit: get(r, "unit"),
+        soldOut: /^(y|yes|true|x|1|sold ?out)$/i.test(get(r, "sold")),
+      }))
+      .filter(it => it.name && !isNaN(it.price));
+    if (!items.length) throw new Error("Sheet has no menu items");
+    return items;
+  }
 
   function setQty(i, v) {
     v = Math.max(0, Math.min(MAX_QTY_PER_ITEM, parseInt(v, 10) || 0));
@@ -204,7 +269,7 @@ const NOTE_AT_TOP ="Orders are for adults 21+ only. We'll confirm your order and
   });
 
   function lines() {
-    return MENU.map((it, i) => ({ it, q: qtys[i] })).filter(x => x.q > 0);
+    return menu.map((it, i) => ({ it, q: qtys[i] })).filter(x => x.q > 0);
   }
   function total() {
     return lines().reduce((s, x) => s + x.q * x.it.price, 0);
@@ -275,7 +340,7 @@ const NOTE_AT_TOP ="Orders are for adults 21+ only. We'll confirm your order and
       if (!res.ok || data.success === "false" || data.success === false) throw new Error(data.message || "Send failed");
       showMsg("Thanks! Your order was sent. We'll be in touch to confirm.", true);
       $("orderForm").reset();
-      MENU.forEach((_, i) => { if (!MENU[i].soldOut) setQty(i, 0); });
+      menu.forEach((it, i) => { if (!it.soldOut) setQty(i, 0); });
     } catch (err) {
       if (/activat/i.test(err.message))
         return showMsg("Form not activated yet — check " + BAKER_EMAIL + " for the 'Activate Form' email from FormSubmit.");
@@ -285,7 +350,15 @@ const NOTE_AT_TOP ="Orders are for adults 21+ only. We'll confirm your order and
     }
   });
 
-  refresh();
+  if (MENU_SHEET_URL) {
+    menuEl.innerHTML = '<div class="meta">Loading menu…</div>';
+    loadSheetMenu()
+      .then(items => { menu = items; })
+      .catch(err => console.warn("Using backup menu:", err.message))
+      .finally(renderMenu);
+  } else {
+    renderMenu();
+  }
 </script>
 </body>
 </html>
