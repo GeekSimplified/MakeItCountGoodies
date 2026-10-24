@@ -46,6 +46,10 @@ const CURRENCY = "$";
 const MAX_QTY_PER_ITEM = 20;
 const SHIPPING_FLAT_RATE = 16;   // added once to every order; set to 0 for free shipping
 const VENMO_URL = "https://account.venmo.com/u/Angela-Pedersen-15";
+
+// Shown after an order is sent. The first line is shown as a heading.
+const THANK_YOU_MESSAGE = `🌈💜 THANK YOU FROM THE BOTTOM OF MY SPACEY LITTLE HEART! 💜🌈
+Every single order means so much to me! 🥹✨ Thank you for supporting my little dream, believing in Make It Count Goodies, and letting me share a little homemade happiness with you! 🍪🍭🪐`;
 const MISSION = "Make It Count Goodies was born from my love of homemade treats, good vibes, and knowing just how precious life really is. As a two-time cancer survivor, I know firsthand that every moment counts. I'm here to spread love, lift spirits, satisfy the advanced space cadet, and turn my passion into a way to give back to the cancer community. Homemade with heart, loaded with hippie calories, and made to make every bite count.";
 const NOTE_AT_TOP ="Orders are for adults 21+ only. We'll confirm your order and total by email.";
 
@@ -138,6 +142,12 @@ const NOTE_AT_TOP ="Orders are for adults 21+ only. We'll confirm your order and
   .msg.err { color: var(--warn); }
   .msg.ok { color: var(--accent); }
   .msg a { color: inherit; }
+  .thanks { margin-top: 4px; padding: 18px; border: 1px solid var(--accent); border-radius: 12px; background: var(--card); font-weight: 400; }
+  .thanks p { margin: 0; }
+  .thanks-title { font-size: 1.1rem; font-weight: 700; color: var(--ink); }
+  .thanks-body { margin-top: 10px !important; color: var(--ink); line-height: 1.6; white-space: pre-line; }
+  .thanks-pay { margin-top: 14px !important; padding-top: 12px; border-top: 1px solid var(--line); color: var(--accent); }
+  .thanks-pay a { color: var(--accent); font-weight: 700; }
 </style>
 </head>
 <body>
@@ -352,6 +362,24 @@ const NOTE_AT_TOP ="Orders are for adults 21+ only. We'll confirm your order and
     $("msg").className = "msg " + (ok ? "ok" : "err");
   }
 
+  function showThanks(amount) {
+    const el = (tag, cls, text) => {
+      const e = document.createElement(tag);
+      if (cls) e.className = cls;
+      if (text) e.textContent = text;
+      return e;
+    };
+    const [heading, ...rest] = THANK_YOU_MESSAGE.trim().split("\n");
+    const venmo = el("a", "", "Venmo");
+    venmo.href = VENMO_URL; venmo.target = "_blank"; venmo.rel = "noopener";
+    const pay = el("p", "thanks-pay");
+    pay.append(el("strong", "", "Your order was sent! "), `Your total is ${amount} — please send payment via `, venmo, ". We'll be in touch to confirm.");
+    const card = el("div", "thanks");
+    card.append(el("p", "thanks-title", heading), el("p", "thanks-body", rest.join("\n")), pay);
+    $("msg").className = "msg";
+    $("msg").replaceChildren(card);
+  }
+
   $("orderForm").addEventListener("submit", async e => {
     e.preventDefault();
     if (!lines().length) return showMsg("Please choose at least one item.");
@@ -388,10 +416,7 @@ const NOTE_AT_TOP ="Orders are for adults 21+ only. We'll confirm your order and
       if (!res.ok || data.success === "false" || data.success === false) throw new Error(data.message || "Send failed");
       $("orderForm").reset();
       menu.forEach((it, i) => { if (!it.soldOut) setQty(i, 0); });
-      showMsg(`Thanks! Your order was sent. Your total is ${amount} — please send payment via `, true);
-      const venmo = document.createElement("a");
-      venmo.href = VENMO_URL; venmo.target = "_blank"; venmo.rel = "noopener"; venmo.textContent = "Venmo";
-      $("msg").append(venmo, ". We'll be in touch to confirm.");
+      showThanks(amount);
     } catch (err) {
       if (/activat/i.test(err.message))
         return showMsg("Form not activated yet — check " + BAKER_EMAIL + " for the 'Activate Form' email from FormSubmit.");
