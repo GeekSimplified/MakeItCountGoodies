@@ -22,7 +22,7 @@ const SEND_METHOD = "formsubmit";
 // Google Sheet menu (recommended). Paste the sheet's "Publish to web" CSV link
 // between the quotes and the menu below is replaced by whatever is in the sheet.
 // Leave it as "" to use the menu below instead. See README.md for setup.
-const MENU_SHEET_URL = "";
+const MENU_SHEET_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRb6j9RQa-Ndl37ZBz7fms-KnPt8pUD-ynr-sgIDr_Uh6_u-mIfjt8VV8G7KRmmDJQbLReIi36FUxpn/pub?output=csv";
 
 // Backup menu – used when MENU_SHEET_URL is empty or the sheet can't be loaded.
 // Add, remove, or change lines. Keep the commas between items.
@@ -221,6 +221,8 @@ const NOTE_AT_TOP ="Orders are for adults 21+ only. We'll confirm your order and
     return rows;
   }
   function sheetCsvUrl(url) {
+    // A "Publish to web" link copied in web-page form: ask for CSV instead.
+    if (/\/pubhtml/.test(url)) return url.replace(/\/pubhtml.*$/, "/pub?output=csv");
     // Accept a normal sheet link too, as long as it's shared "Anyone with the link".
     const m = url.match(/\/spreadsheets\/d\/([\w-]{20,})/);
     return m ? `https://docs.google.com/spreadsheets/d/${m[1]}/gviz/tq?tqx=out:csv` : url;
