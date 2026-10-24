@@ -125,6 +125,8 @@ const NOTE_AT_TOP ="Orders are for adults 21+ only. We'll confirm your order and
   .summary { color: var(--muted); font-size: .9rem; margin-bottom: 10px; white-space: pre-line; }
   .pay-note { margin: 12px 0 0; font-size: .95rem; }
   .pay-note a { color: var(--accent); font-weight: 700; }
+  .venmo-qr { display: block; width: min(280px, 80%); margin: 14px auto 0; }
+  .venmo-qr img { display: block; width: 100%; height: auto; border-radius: 14px; }
   .ship-note { margin: -4px 0 14px; padding: 8px 12px; border: 1px solid var(--accent); border-radius: 8px; color: var(--ink); font-weight: 600; text-align: center; }
   button.submit {
     width: 100%; padding: 14px; border: 0; border-radius: 10px;
@@ -175,6 +177,7 @@ const NOTE_AT_TOP ="Orders are for adults 21+ only. We'll confirm your order and
       <div class="subline"><span>Flat rate shipping</span><span id="shipping">$0.00</span></div>
       <div class="total"><span>Estimated total</span><span id="total">$0.00</span></div>
       <p class="pay-note">Please Submit Payment via <a id="venmoLink" target="_blank" rel="noopener">Venmo</a> and take a screen shot of payment and add to communication text.</p>
+      <a class="venmo-qr" id="venmoQr" target="_blank" rel="noopener"><img src="venmo-qr.jpg" width="700" height="517" alt="Venmo QR code for payment"></a>
     </section>
 
     <button class="submit" id="submitBtn" type="submit">Submit Order</button>
@@ -190,7 +193,7 @@ const NOTE_AT_TOP ="Orders are for adults 21+ only. We'll confirm your order and
 
   $("mission").textContent = MISSION;
   $("topNote").textContent = NOTE_AT_TOP;
-  $("venmoLink").href = VENMO_URL;
+  $("venmoLink").href = $("venmoQr").href = VENMO_URL;
   if (SHIPPING_FLAT_RATE > 0) $("shipNote").textContent = `Flat Rate Shipping on all items: ${money(SHIPPING_FLAT_RATE)}`;
   else $("shipNote").hidden = true;
 
