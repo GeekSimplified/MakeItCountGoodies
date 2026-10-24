@@ -137,6 +137,7 @@ const NOTE_AT_TOP ="Orders are for adults 21+ only. We'll confirm your order and
   .msg { text-align: center; margin-top: 12px; font-weight: 600; }
   .msg.err { color: var(--warn); }
   .msg.ok { color: var(--accent); }
+  .msg a { color: inherit; }
 </style>
 </head>
 <body>
@@ -361,7 +362,8 @@ const NOTE_AT_TOP ="Orders are for adults 21+ only. We'll confirm your order and
     if (!$("age").checked) return showMsg("Please confirm you are 21 or older.");
 
     const text = buildOrderText();
-    const subject = `Order from ${$("name").value.trim()} — ${money(total())}`;
+    const amount = money(total());   // saved now – the form is cleared after sending
+    const subject = `Order from ${$("name").value.trim()} — ${amount}`;
 
     if (SEND_METHOD === "mailto") {
       location.href = `mailto:${BAKER_EMAIL}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(text)}`;
@@ -384,9 +386,12 @@ const NOTE_AT_TOP ="Orders are for adults 21+ only. We'll confirm your order and
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok || data.success === "false" || data.success === false) throw new Error(data.message || "Send failed");
-      showMsg("Thanks! Your order was sent. We'll be in touch to confirm.", true);
       $("orderForm").reset();
       menu.forEach((it, i) => { if (!it.soldOut) setQty(i, 0); });
+      showMsg(`Thanks! Your order was sent. Your total is ${amount} — please send payment via `, true);
+      const venmo = document.createElement("a");
+      venmo.href = VENMO_URL; venmo.target = "_blank"; venmo.rel = "noopener"; venmo.textContent = "Venmo";
+      $("msg").append(venmo, ". We'll be in touch to confirm.");
     } catch (err) {
       if (/activat/i.test(err.message))
         return showMsg("Form not activated yet — check " + BAKER_EMAIL + " for the 'Activate Form' email from FormSubmit.");
