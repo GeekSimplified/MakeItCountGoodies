@@ -38,7 +38,8 @@ const MENU = [
 // Optional extras
 const CURRENCY = "$";
 const MAX_QTY_PER_ITEM = 20;
-const NOTE_AT_TOP = "Orders are for adults 21+ only. We'll confirm your order and total by text or email.";
+const MISSION = "Make It Count Goodies was born from my love of homemade treats, good vibes, and knowing just how precious life really is. As a two-time cancer survivor, I know firsthand that every moment counts. I'm here to spread love, lift spirits, satisfy the advanced space cadet, and turn my passion into a way to give back to the cancer community. Homemade with heart, loaded with hippie calories, and made to make every bite count.";
+const NOTE_AT_TOP ="Orders are for adults 21+ only. We'll confirm your order and total by text or email.";
 
 /* ===================================================================== */
 </script>
@@ -66,6 +67,7 @@ const NOTE_AT_TOP = "Orders are for adults 21+ only. We'll confirm your order an
   header { text-align: center; margin-bottom: 20px; }
   header h1 { margin: 0; font-size: 1.9rem; letter-spacing: .5px; }
   header p { margin: 6px 0 0; color: var(--muted); }
+  header p.mission { margin: 14px auto 16px; max-width: 560px; color: var(--ink); font-style: italic; line-height: 1.6; }
   section {
     background: var(--card);
     border: 1px solid var(--line);
@@ -116,6 +118,7 @@ const NOTE_AT_TOP = "Orders are for adults 21+ only. We'll confirm your order an
 <div class="wrap">
   <header>
     <h1>Make It Count Goodies</h1>
+    <p class="mission" id="mission"></p>
     <p id="topNote"></p>
   </header>
 
@@ -159,6 +162,7 @@ const NOTE_AT_TOP = "Orders are for adults 21+ only. We'll confirm your order an
   const money = n => CURRENCY + n.toFixed(2);
   const qtys = MENU.map(() => 0);
 
+  $("mission").textContent = MISSION;
   $("topNote").textContent = NOTE_AT_TOP;
 
   // Build the menu from the MENU list above
