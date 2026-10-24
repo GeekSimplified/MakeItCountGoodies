@@ -106,7 +106,13 @@ const NOTE_AT_TOP ="Orders are for adults 21+ only. We'll confirm your order and
   }
   textarea { min-height: 80px; resize: vertical; }
   .row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-  @media (max-width: 520px) { .row { grid-template-columns: 1fr; } }
+  @media (max-width: 520px) {
+    .row { grid-template-columns: 1fr; }
+    /* Phones: name and description on top, price and quantity on a row below */
+    .item { flex-wrap: wrap; row-gap: 8px; }
+    .item .info { flex-basis: 100%; }
+    .item .qty, .item .sold-tag { margin-left: auto; }
+  }
   .check { display: flex; gap: 8px; align-items: flex-start; font-weight: 400; }
   .check input { margin-top: 4px; }
   .total { display: flex; justify-content: space-between; font-size: 1.15rem; font-weight: 700; }
