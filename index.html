@@ -44,14 +44,16 @@ const NOTE_AT_TOP = "Orders are for adults 21+ only. We'll confirm your order an
 </script>
 <style>
   :root {
-    --bg: #faf6ef;
-    --card: #ffffff;
-    --ink: #2b2620;
-    --muted: #7a6f63;
-    --line: #e7dfd3;
-    --accent: #3f7d4e;
+    color-scheme: dark;
+    --bg: #000000;
+    --card: #141414;
+    --ink: #f2f2f2;
+    --muted: #a0a0a0;
+    --line: #2e2e2e;
+    --accent: #4caf64;
     --accent-ink: #ffffff;
-    --warn: #b4472f;
+    --field: #0a0a0a;
+    --warn: #ff6b4a;
   }
   * { box-sizing: border-box; }
   body {
@@ -85,13 +87,13 @@ const NOTE_AT_TOP = "Orders are for adults 21+ only. We'll confirm your order an
   .qty { display: flex; align-items: center; gap: 6px; }
   .qty button {
     width: 34px; height: 34px; border-radius: 8px;
-    border: 1px solid var(--line); background: #fff; font-size: 1.1rem; cursor: pointer;
+    border: 1px solid var(--line); background: var(--field); color: var(--ink); font-size: 1.1rem; cursor: pointer;
   }
-  .qty input { width: 44px; height: 34px; text-align: center; border: 1px solid var(--line); border-radius: 8px; font-size: 1rem; }
+  .qty input { width: 44px; height: 34px; text-align: center; border: 1px solid var(--line); border-radius: 8px; font-size: 1rem; background: var(--field); color: var(--ink); }
   .sold-tag { color: var(--warn); font-weight: 600; font-size: .85rem; }
   label { display: block; font-weight: 600; font-size: .9rem; margin: 10px 0 4px; }
   input[type=text], input[type=email], input[type=tel], input[type=date], textarea, select {
-    width: 100%; padding: 10px; border: 1px solid var(--line); border-radius: 8px; font: inherit; background: #fff;
+    width: 100%; padding: 10px; border: 1px solid var(--line); border-radius: 8px; font: inherit; background: var(--field); color: var(--ink);
   }
   textarea { min-height: 80px; resize: vertical; }
   .row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
