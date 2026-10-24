@@ -44,6 +44,7 @@ const MENU = [
 // Optional extras
 const CURRENCY = "$";
 const MAX_QTY_PER_ITEM = 20;
+const SHIPPING_FLAT_RATE = 16;   // added once to every order; set to 0 for free shipping
 const MISSION = "Make It Count Goodies was born from my love of homemade treats, good vibes, and knowing just how precious life really is. As a two-time cancer survivor, I know firsthand that every moment counts. I'm here to spread love, lift spirits, satisfy the advanced space cadet, and turn my passion into a way to give back to the cancer community. Homemade with heart, loaded with hippie calories, and made to make every bite count.";
 const NOTE_AT_TOP ="Orders are for adults 21+ only. We'll confirm your order and total by email.";
 
@@ -107,7 +108,6 @@ const NOTE_AT_TOP ="Orders are for adults 21+ only. We'll confirm your order and
   textarea { min-height: 80px; resize: vertical; }
   .row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
   .addr { display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 12px; }
-  .req-note { font-weight: 400; color: var(--muted); }
   @media (max-width: 520px) {
     .row { grid-template-columns: 1fr; }
     .addr { grid-template-columns: 1fr 1fr; }
@@ -119,8 +119,10 @@ const NOTE_AT_TOP ="Orders are for adults 21+ only. We'll confirm your order and
   }
   .check { display: flex; gap: 8px; align-items: flex-start; font-weight: 400; }
   .check input { margin-top: 4px; }
-  .total { display: flex; justify-content: space-between; font-size: 1.15rem; font-weight: 700; }
-  .summary { color: var(--muted); font-size: .9rem; margin-top: 6px; white-space: pre-line; }
+  .total { display: flex; justify-content: space-between; font-size: 1.15rem; font-weight: 700; margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--line); }
+  .subline { display: flex; justify-content: space-between; color: var(--muted); font-size: .95rem; }
+  .summary { color: var(--muted); font-size: .9rem; margin-bottom: 10px; white-space: pre-line; }
+  .ship-note { margin: -4px 0 14px; padding: 8px 12px; border: 1px solid var(--accent); border-radius: 8px; color: var(--ink); font-weight: 600; text-align: center; }
   button.submit {
     width: 100%; padding: 14px; border: 0; border-radius: 10px;
     background: var(--accent); color: var(--accent-ink); font-size: 1.05rem; font-weight: 700; cursor: pointer;
@@ -142,6 +144,7 @@ const NOTE_AT_TOP ="Orders are for adults 21+ only. We'll confirm your order and
   <form id="orderForm" novalidate>
     <section>
       <h2>Menu</h2>
+      <p class="ship-note" id="shipNote"></p>
       <div id="menu"></div>
     </section>
 
@@ -151,14 +154,12 @@ const NOTE_AT_TOP ="Orders are for adults 21+ only. We'll confirm your order and
         <div><label for="name">Name *</label><input id="name" type="text" autocomplete="name" required></div>
         <div><label for="email">Email *</label><input id="email" type="email" autocomplete="email" required></div>
       </div>
-      <label for="method">Pickup or delivery</label>
-      <select id="method"><option>Pickup</option><option>Delivery</option></select>
-      <label for="street">Street address <span class="req-note" id="addrNote"></span></label>
-      <input id="street" type="text" autocomplete="street-address">
+      <label for="street">Street address *</label>
+      <input id="street" type="text" autocomplete="street-address" required>
       <div class="addr">
-        <div class="city"><label for="city">City</label><input id="city" type="text" autocomplete="address-level2"></div>
-        <div><label for="state">State</label><input id="state" type="text" autocomplete="address-level1"></div>
-        <div><label for="zip">Zip code</label><input id="zip" type="text" inputmode="numeric" autocomplete="postal-code"></div>
+        <div class="city"><label for="city">City *</label><input id="city" type="text" autocomplete="address-level2" required></div>
+        <div><label for="state">State *</label><input id="state" type="text" autocomplete="address-level1" required></div>
+        <div><label for="zip">Zip code *</label><input id="zip" type="text" inputmode="numeric" autocomplete="postal-code" required></div>
       </div>
       <label for="notes">Notes / special requests</label>
       <textarea id="notes"></textarea>
@@ -166,8 +167,10 @@ const NOTE_AT_TOP ="Orders are for adults 21+ only. We'll confirm your order and
     </section>
 
     <section>
-      <div class="total"><span>Estimated total</span><span id="total">$0.00</span></div>
       <div class="summary" id="summary">No items selected yet.</div>
+      <div class="subline"><span>Subtotal</span><span id="subtotal">$0.00</span></div>
+      <div class="subline"><span>Flat rate shipping</span><span id="shipping">$0.00</span></div>
+      <div class="total"><span>Estimated total</span><span id="total">$0.00</span></div>
     </section>
 
     <button class="submit" id="submitBtn" type="submit">Submit Order</button>
@@ -183,6 +186,8 @@ const NOTE_AT_TOP ="Orders are for adults 21+ only. We'll confirm your order and
 
   $("mission").textContent = MISSION;
   $("topNote").textContent = NOTE_AT_TOP;
+  if (SHIPPING_FLAT_RATE > 0) $("shipNote").textContent = `Flat Rate Shipping on all items: ${money(SHIPPING_FLAT_RATE)}`;
+  else $("shipNote").hidden = true;
 
   const menuEl = $("menu");
   function renderMenu() {
@@ -285,11 +290,19 @@ const NOTE_AT_TOP ="Orders are for adults 21+ only. We'll confirm your order and
   function lines() {
     return menu.map((it, i) => ({ it, q: qtys[i] })).filter(x => x.q > 0);
   }
-  function total() {
+  function subtotal() {
     return lines().reduce((s, x) => s + x.q * x.it.price, 0);
+  }
+  function shipping() {
+    return lines().length ? SHIPPING_FLAT_RATE : 0;
+  }
+  function total() {
+    return subtotal() + shipping();
   }
   function refresh() {
     const l = lines();
+    $("subtotal").textContent = money(subtotal());
+    $("shipping").textContent = money(shipping());
     $("total").textContent = money(total());
     $("summary").textContent = l.length
       ? l.map(x => `${x.q} × ${x.it.name} (${x.it.unit || "each"}) — ${money(x.q * x.it.price)}`).join("\n")
@@ -304,13 +317,14 @@ const NOTE_AT_TOP ="Orders are for adults 21+ only. We'll confirm your order and
       "ITEMS",
       ...l.map(x => `  ${x.q} × ${x.it.name} (${x.it.unit || "each"}, ${x.it.dose || "—"}) @ ${money(x.it.price)} = ${money(x.q * x.it.price)}`),
       "",
-      `ESTIMATED TOTAL: ${money(total())}`,
+      `Subtotal:           ${money(subtotal())}`,
+      `Flat rate shipping: ${money(shipping())}`,
+      `ESTIMATED TOTAL:    ${money(total())}`,
       "",
       "CUSTOMER",
       `  Name:   ${$("name").value.trim()}`,
       `  Email:  ${$("email").value.trim()}`,
-      `  ${$("method").value}`,
-      `  Address: ${address() || "—"}`,
+      `  Ship to: ${address()}`,
       `  Notes:  ${$("notes").value.trim() || "—"}`,
       `  Confirmed 21+: yes`,
     ].join("\n");
@@ -321,12 +335,6 @@ const NOTE_AT_TOP ="Orders are for adults 21+ only. We'll confirm your order and
     const [street, city, state, zip] = addrFields.map(id => $(id).value.trim());
     return [street, city, [state, zip].filter(Boolean).join(" ")].filter(Boolean).join(", ");
   }
-  function isDelivery() { return $("method").value === "Delivery"; }
-  function updateAddrNote() {
-    $("addrNote").textContent = isDelivery() ? "* (required for delivery)" : "(optional for pickup)";
-  }
-  $("method").addEventListener("change", updateAddrNote);
-  updateAddrNote();
 
   function showMsg(text, ok) {
     $("msg").textContent = text;
@@ -338,7 +346,7 @@ const NOTE_AT_TOP ="Orders are for adults 21+ only. We'll confirm your order and
     if (!lines().length) return showMsg("Please choose at least one item.");
     if (!$("name").value.trim() || !$("email").checkValidity() || !$("email").value.trim())
       return showMsg("Please fill in your name and a valid email.");
-    if (isDelivery() && addrFields.some(id => !$(id).value.trim()))
+    if (addrFields.some(id => !$(id).value.trim()))
       return showMsg("Please fill in your full address for delivery.");
     if (!$("age").checked) return showMsg("Please confirm you are 21 or older.");
 
@@ -368,7 +376,6 @@ const NOTE_AT_TOP ="Orders are for adults 21+ only. We'll confirm your order and
       if (!res.ok || data.success === "false" || data.success === false) throw new Error(data.message || "Send failed");
       showMsg("Thanks! Your order was sent. We'll be in touch to confirm.", true);
       $("orderForm").reset();
-      updateAddrNote();
       menu.forEach((it, i) => { if (!it.soldOut) setQty(i, 0); });
     } catch (err) {
       if (/activat/i.test(err.message))
