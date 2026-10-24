@@ -1,0 +1,285 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Make It Count Goodies – Order</title>
+<script>
+/* =====================================================================
+   BAKER SETTINGS — edit this section only
+   ===================================================================== */
+
+// Where orders get emailed.
+const BAKER_EMAIL = "galaxygoodies420@gmail.com";
+
+// How orders are sent:
+//   "formsubmit" – sends straight from the page via FormSubmit.co (free, no account).
+//                  The very first order triggers a one-time "Activate" email to
+//                  BAKER_EMAIL; click it and every order after that arrives normally.
+//   "mailto"     – opens the customer's own email app with the order filled in.
+const SEND_METHOD = "formsubmit";
+
+// The menu. Add, remove, or change lines. Keep the commas between items.
+//   name   – item name
+//   desc   – short description (optional, use "" for none)
+//   dose   – potency per piece (optional, use "" for none)
+//   price  – price per unit, numbers only
+//   unit   – what one unit is, e.g. "each", "4-pack", "dozen"
+//   soldOut – set to true to show the item but block ordering
+const MENU = [
+  { name: "Brown Butter Brownies",  desc: "Fudgy, rich, classic.",            dose: "10mg THC", price: 6,  unit: "each" },
+  { name: "Chocolate Chip Cookies", desc: "Soft-baked with sea salt.",         dose: "5mg THC",  price: 15, unit: "4-pack" },
+  { name: "Lemon Bars",             desc: "Tart, buttery shortbread crust.",   dose: "10mg THC", price: 7,  unit: "each" },
+  { name: "Rice Krispie Treats",    desc: "Gooey marshmallow goodness.",       dose: "10mg THC", price: 5,  unit: "each" },
+  { name: "Gummies",                desc: "Mixed fruit flavors.",              dose: "5mg THC",  price: 20, unit: "10-pack" },
+  { name: "Seasonal Special",       desc: "Ask about this month's flavor!",    dose: "10mg THC", price: 8,  unit: "each", soldOut: true },
+];
+
+// Optional extras
+const CURRENCY = "$";
+const MAX_QTY_PER_ITEM = 20;
+const NOTE_AT_TOP = "Orders are for adults 21+ only. We'll confirm your order and total by text or email.";
+
+/* ===================================================================== */
+</script>
+<style>
+  :root {
+    --bg: #faf6ef;
+    --card: #ffffff;
+    --ink: #2b2620;
+    --muted: #7a6f63;
+    --line: #e7dfd3;
+    --accent: #3f7d4e;
+    --accent-ink: #ffffff;
+    --warn: #b4472f;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font: 16px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  .wrap { max-width: 680px; margin: 0 auto; padding: 24px 16px 64px; }
+  header { text-align: center; margin-bottom: 20px; }
+  header h1 { margin: 0; font-size: 1.9rem; letter-spacing: .5px; }
+  header p { margin: 6px 0 0; color: var(--muted); }
+  section {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 18px;
+    margin-bottom: 16px;
+  }
+  h2 { font-size: 1.1rem; margin: 0 0 12px; }
+  .item {
+    display: flex; gap: 12px; align-items: center;
+    padding: 12px 0; border-top: 1px solid var(--line);
+  }
+  .item:first-of-type { border-top: 0; padding-top: 0; }
+  .item .info { flex: 1; min-width: 0; }
+  .item .name { font-weight: 600; }
+  .item .meta { color: var(--muted); font-size: .9rem; }
+  .item .price { font-weight: 600; white-space: nowrap; }
+  .item.sold { opacity: .5; }
+  .qty { display: flex; align-items: center; gap: 6px; }
+  .qty button {
+    width: 34px; height: 34px; border-radius: 8px;
+    border: 1px solid var(--line); background: #fff; font-size: 1.1rem; cursor: pointer;
+  }
+  .qty input { width: 44px; height: 34px; text-align: center; border: 1px solid var(--line); border-radius: 8px; font-size: 1rem; }
+  .sold-tag { color: var(--warn); font-weight: 600; font-size: .85rem; }
+  label { display: block; font-weight: 600; font-size: .9rem; margin: 10px 0 4px; }
+  input[type=text], input[type=email], input[type=tel], input[type=date], textarea, select {
+    width: 100%; padding: 10px; border: 1px solid var(--line); border-radius: 8px; font: inherit; background: #fff;
+  }
+  textarea { min-height: 80px; resize: vertical; }
+  .row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  @media (max-width: 520px) { .row { grid-template-columns: 1fr; } }
+  .check { display: flex; gap: 8px; align-items: flex-start; font-weight: 400; }
+  .check input { margin-top: 4px; }
+  .total { display: flex; justify-content: space-between; font-size: 1.15rem; font-weight: 700; }
+  .summary { color: var(--muted); font-size: .9rem; margin-top: 6px; white-space: pre-line; }
+  button.submit {
+    width: 100%; padding: 14px; border: 0; border-radius: 10px;
+    background: var(--accent); color: var(--accent-ink); font-size: 1.05rem; font-weight: 700; cursor: pointer;
+  }
+  button.submit:disabled { opacity: .6; cursor: default; }
+  .msg { text-align: center; margin-top: 12px; font-weight: 600; }
+  .msg.err { color: var(--warn); }
+  .msg.ok { color: var(--accent); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Make It Count Goodies</h1>
+    <p id="topNote"></p>
+  </header>
+
+  <form id="orderForm" novalidate>
+    <section>
+      <h2>Menu</h2>
+      <div id="menu"></div>
+    </section>
+
+    <section>
+      <h2>Your info</h2>
+      <div class="row">
+        <div><label for="name">Name *</label><input id="name" type="text" required></div>
+        <div><label for="phone">Phone *</label><input id="phone" type="tel" required></div>
+      </div>
+      <label for="email">Email *</label><input id="email" type="email" required>
+      <div class="row">
+        <div>
+          <label for="method">Pickup or delivery</label>
+          <select id="method"><option>Pickup</option><option>Delivery</option></select>
+        </div>
+        <div><label for="date">Preferred date</label><input id="date" type="date"></div>
+      </div>
+      <label for="notes">Notes / address / special requests</label>
+      <textarea id="notes"></textarea>
+      <label class="check"><input id="age" type="checkbox"> I confirm I am 21 or older. *</label>
+    </section>
+
+    <section>
+      <div class="total"><span>Estimated total</span><span id="total">$0.00</span></div>
+      <div class="summary" id="summary">No items selected yet.</div>
+    </section>
+
+    <button class="submit" id="submitBtn" type="submit">Submit Order</button>
+    <div class="msg" id="msg"></div>
+  </form>
+</div>
+
+<script>
+  const $ = id => document.getElementById(id);
+  const money = n => CURRENCY + n.toFixed(2);
+  const qtys = MENU.map(() => 0);
+
+  $("topNote").textContent = NOTE_AT_TOP;
+
+  // Build the menu from the MENU list above
+  const menuEl = $("menu");
+  MENU.forEach((it, i) => {
+    const row = document.createElement("div");
+    row.className = "item" + (it.soldOut ? " sold" : "");
+    const meta = [it.desc, it.dose].filter(Boolean).join(" · ");
+    row.innerHTML = `
+      <div class="info">
+        <div class="name"></div>
+        <div class="meta"></div>
+      </div>
+      <div class="price">${money(it.price)} <span class="meta">/ ${it.unit || "each"}</span></div>
+      ${it.soldOut
+        ? '<span class="sold-tag">Sold out</span>'
+        : `<div class="qty">
+             <button type="button" data-i="${i}" data-d="-1" aria-label="Less">−</button>
+             <input type="number" min="0" max="${MAX_QTY_PER_ITEM}" value="0" data-i="${i}" aria-label="Quantity">
+             <button type="button" data-i="${i}" data-d="1" aria-label="More">+</button>
+           </div>`}`;
+    row.querySelector(".name").textContent = it.name;
+    row.querySelector(".info .meta").textContent = meta;
+    menuEl.appendChild(row);
+  });
+
+  function setQty(i, v) {
+    v = Math.max(0, Math.min(MAX_QTY_PER_ITEM, parseInt(v, 10) || 0));
+    qtys[i] = v;
+    menuEl.querySelector(`input[data-i="${i}"]`).value = v;
+    refresh();
+  }
+  menuEl.addEventListener("click", e => {
+    const b = e.target.closest("button[data-i]");
+    if (b) setQty(+b.dataset.i, qtys[+b.dataset.i] + +b.dataset.d);
+  });
+  menuEl.addEventListener("change", e => {
+    if (e.target.matches("input[data-i]")) setQty(+e.target.dataset.i, e.target.value);
+  });
+
+  function lines() {
+    return MENU.map((it, i) => ({ it, q: qtys[i] })).filter(x => x.q > 0);
+  }
+  function total() {
+    return lines().reduce((s, x) => s + x.q * x.it.price, 0);
+  }
+  function refresh() {
+    const l = lines();
+    $("total").textContent = money(total());
+    $("summary").textContent = l.length
+      ? l.map(x => `${x.q} × ${x.it.name} (${x.it.unit || "each"}) — ${money(x.q * x.it.price)}`).join("\n")
+      : "No items selected yet.";
+  }
+
+  function buildOrderText() {
+    const l = lines();
+    return [
+      "NEW ORDER — Make It Count Goodies",
+      "",
+      "ITEMS",
+      ...l.map(x => `  ${x.q} × ${x.it.name} (${x.it.unit || "each"}, ${x.it.dose || "—"}) @ ${money(x.it.price)} = ${money(x.q * x.it.price)}`),
+      "",
+      `ESTIMATED TOTAL: ${money(total())}`,
+      "",
+      "CUSTOMER",
+      `  Name:   ${$("name").value.trim()}`,
+      `  Phone:  ${$("phone").value.trim()}`,
+      `  Email:  ${$("email").value.trim()}`,
+      `  ${$("method").value} on: ${$("date").value || "not specified"}`,
+      `  Notes:  ${$("notes").value.trim() || "—"}`,
+      `  Confirmed 21+: yes`,
+    ].join("\n");
+  }
+
+  function showMsg(text, ok) {
+    $("msg").textContent = text;
+    $("msg").className = "msg " + (ok ? "ok" : "err");
+  }
+
+  $("orderForm").addEventListener("submit", async e => {
+    e.preventDefault();
+    if (!lines().length) return showMsg("Please choose at least one item.");
+    if (!$("name").value.trim() || !$("phone").value.trim() || !$("email").checkValidity() || !$("email").value.trim())
+      return showMsg("Please fill in your name, phone, and a valid email.");
+    if (!$("age").checked) return showMsg("Please confirm you are 21 or older.");
+
+    const text = buildOrderText();
+    const subject = `Order from ${$("name").value.trim()} — ${money(total())}`;
+
+    if (SEND_METHOD === "mailto") {
+      location.href = `mailto:${BAKER_EMAIL}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(text)}`;
+      return showMsg("Your email app should open with the order — just hit Send.", true);
+    }
+
+    const btn = $("submitBtn");
+    btn.disabled = true; btn.textContent = "Sending…";
+    try {
+      const res = await fetch(`https://formsubmit.co/ajax/${encodeURIComponent(BAKER_EMAIL)}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Accept": "application/json" },
+        body: JSON.stringify({
+          _subject: subject,
+          _replyto: $("email").value.trim(),
+          _template: "box",
+          _captcha: "false",
+          Order: text,
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || data.success === "false" || data.success === false) throw new Error(data.message || "Send failed");
+      showMsg("Thanks! Your order was sent. We'll be in touch to confirm.", true);
+      $("orderForm").reset();
+      MENU.forEach((_, i) => { if (!MENU[i].soldOut) setQty(i, 0); });
+    } catch (err) {
+      if (/activat/i.test(err.message))
+        return showMsg("Form not activated yet — check " + BAKER_EMAIL + " for the 'Activate Form' email from FormSubmit.");
+      showMsg("Sorry, the order couldn't be sent. Please try again or contact us directly.");
+    } finally {
+      btn.disabled = false; btn.textContent = "Submit Order";
+    }
+  });
+
+  refresh();
+</script>
+</body>
+</html>
