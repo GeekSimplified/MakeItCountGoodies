@@ -45,6 +45,13 @@ const MENU = [
 const CURRENCY = "$";
 const MAX_QTY_PER_ITEM = 20;
 const SHIPPING_FLAT_RATE = 16;   // added once to every order; set to 0 for free shipping
+
+// Discount code – takes DISCOUNT_PERCENT off the items (not shipping).
+// The code itself isn't written here, only its SHA-256 fingerprint, so it can't be
+// read from the page source. To change the code, ask your web person for a new
+// fingerprint (lowercase code, no spaces). Set DISCOUNT_PERCENT to 0 to turn it off.
+const DISCOUNT_PERCENT = 10;
+const DISCOUNT_CODE_SHA256 = "e690648d4611d4dfab89ca9552b8895a39317631ece35cd00c2553c63127d580";
 const VENMO_URL = "https://account.venmo.com/u/Angela-Pedersen-15";
 
 // Shown after an order is sent. The first line is shown as a heading.
@@ -126,6 +133,13 @@ const NOTE_AT_TOP ="Orders are for adults 21+ only. We'll confirm your order and
   .check input { margin-top: 4px; }
   .total { display: flex; justify-content: space-between; font-size: 1.15rem; font-weight: 700; margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--line); }
   .subline { display: flex; justify-content: space-between; color: var(--muted); font-size: .95rem; }
+  .subline.discount-line { color: var(--accent); }
+  .subline[hidden] { display: none; }
+  #discountBox { margin-bottom: 12px; }
+  #discountBox label { margin-top: 0; }
+  .code-status { min-height: 1.2em; margin-top: 4px; font-size: .9rem; }
+  .code-status.ok { color: var(--accent); }
+  .code-status.err { color: var(--warn); }
   .summary { color: var(--muted); font-size: .9rem; margin-bottom: 10px; white-space: pre-line; }
   .pay-title { margin: 18px 0 0; }
   .pay-note { margin: 6px 0 0; font-size: .95rem; }
@@ -185,7 +199,13 @@ const NOTE_AT_TOP ="Orders are for adults 21+ only. We'll confirm your order and
 
     <section>
       <div class="summary" id="summary">No items selected yet.</div>
+      <div id="discountBox">
+        <label for="code">Discount code</label>
+        <input id="code" type="text" autocomplete="off" autocapitalize="off" spellcheck="false">
+        <div class="code-status" id="codeStatus"></div>
+      </div>
       <div class="subline"><span>Subtotal</span><span id="subtotal">$0.00</span></div>
+      <div class="subline discount-line" id="discountLine" hidden><span id="discountLabel">Discount</span><span id="discount">−$0.00</span></div>
       <div class="subline"><span>Flat rate shipping</span><span id="shipping">$0.00</span></div>
       <div class="total"><span>Estimated total</span><span id="total">$0.00</span></div>
       <h2 class="pay-title">Submitting Payment</h2>
@@ -203,6 +223,7 @@ const NOTE_AT_TOP ="Orders are for adults 21+ only. We'll confirm your order and
   const money = n => CURRENCY + n.toFixed(2);
   let menu = MENU;
   let qtys = [];
+  let codeApplied = false;
 
   $("mission").textContent = MISSION;
   $("topNote").textContent = NOTE_AT_TOP;
@@ -317,12 +338,17 @@ const NOTE_AT_TOP ="Orders are for adults 21+ only. We'll confirm your order and
   function shipping() {
     return lines().length ? SHIPPING_FLAT_RATE : 0;
   }
+  function discount() {
+    return codeApplied ? Math.round(subtotal() * DISCOUNT_PERCENT) / 100 : 0;
+  }
   function total() {
-    return subtotal() + shipping();
+    return subtotal() - discount() + shipping();
   }
   function refresh() {
     const l = lines();
     $("subtotal").textContent = money(subtotal());
+    $("discountLine").hidden = !codeApplied;
+    $("discount").textContent = "−" + money(discount());
     $("shipping").textContent = money(shipping());
     $("total").textContent = money(total());
     $("summary").textContent = l.length
@@ -339,6 +365,7 @@ const NOTE_AT_TOP ="Orders are for adults 21+ only. We'll confirm your order and
       ...l.map(x => `  ${x.q} × ${x.it.name} (${x.it.unit || "each"}, ${x.it.dose || "—"}) @ ${money(x.it.price)} = ${money(x.q * x.it.price)}`),
       "",
       `Subtotal:           ${money(subtotal())}`,
+      ...(codeApplied ? [`Discount (${DISCOUNT_PERCENT}%, code "${$("code").value.trim()}"): −${money(discount())}`] : []),
       `Flat rate shipping: ${money(shipping())}`,
       `ESTIMATED TOTAL:    ${money(total())}`,
       "",
@@ -355,6 +382,30 @@ const NOTE_AT_TOP ="Orders are for adults 21+ only. We'll confirm your order and
   function address() {
     const [street, city, state, zip] = addrFields.map(id => $(id).value.trim());
     return [street, city, [state, zip].filter(Boolean).join(" ")].filter(Boolean).join(", ");
+  }
+
+  // --- Discount code -----------------------------------------------------
+  async function sha256(text) {
+    const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text));
+    return [...new Uint8Array(buf)].map(b => b.toString(16).padStart(2, "0")).join("");
+  }
+  async function checkCode() {
+    const typed = $("code").value;
+    const normalized = typed.trim().toLowerCase().replace(/\s+/g, "");
+    const ok = !!normalized && (await sha256(normalized)) === DISCOUNT_CODE_SHA256;
+    if ($("code").value !== typed) return;   // they kept typing; a newer check will finish
+    codeApplied = ok;
+    $("codeStatus").textContent = ok ? `✓ ${DISCOUNT_PERCENT}% off your items` : normalized ? "That code isn't valid." : "";
+    $("codeStatus").className = "code-status " + (ok ? "ok" : "err");
+    refresh();
+  }
+  if (DISCOUNT_PERCENT > 0) {
+    $("discountLabel").textContent = `Discount (${DISCOUNT_PERCENT}%)`;
+    $("code").addEventListener("input", checkCode);
+    // Enter in the code box applies the code instead of submitting the order
+    $("code").addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); checkCode(); } });
+  } else {
+    $("discountBox").hidden = true;
   }
 
   function showMsg(text, ok) {
@@ -415,6 +466,8 @@ const NOTE_AT_TOP ="Orders are for adults 21+ only. We'll confirm your order and
       const data = await res.json().catch(() => ({}));
       if (!res.ok || data.success === "false" || data.success === false) throw new Error(data.message || "Send failed");
       $("orderForm").reset();
+      codeApplied = false;
+      $("codeStatus").textContent = "";
       menu.forEach((it, i) => { if (!it.soldOut) setQty(i, 0); });
       showThanks(amount);
     } catch (err) {
