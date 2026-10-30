@@ -13,16 +13,17 @@
 const BAKER_EMAIL = "galaxygoodies420@gmail.com";
 
 // How orders are sent:
-//   "web3forms"  – sends straight from the page via Web3Forms.com (free). Needs the
-//                  access key emailed to BAKER_EMAIL by web3forms.com (below).
+//   "web3forms"  – sends straight from the page via Web3Forms.com (free). Needs an
+//                  access key from web3forms.com (below). A copy also goes to
+//                  BAKER_EMAIL through FormSubmit whenever FormSubmit is up.
 //   "formsubmit" – sends straight from the page via FormSubmit.co (free, no account).
 //                  The very first order triggers a one-time "Activate" email to
 //                  BAKER_EMAIL; click it and every order after that arrives normally.
 //   "mailto"     – opens the customer's own email app with the order filled in.
 const SEND_METHOD = "formsubmit";
 
-// Web3Forms access key (only used when SEND_METHOD is "web3forms"). Orders go to
-// the email address the key was created for.
+// Web3Forms access key (only used when SEND_METHOD is "web3forms"). Web3Forms
+// emails orders to the address the key was created for (geeksimplified@gmail.com).
 const WEB3FORMS_ACCESS_KEY = "";
 
 // Google Sheet menu (recommended). Paste the sheet's "Publish to web" CSV link
@@ -421,39 +422,44 @@ const NOTE_AT_TOP ="Orders are for adults 21+ only. We'll confirm your order and
 
   // --- Sending -----------------------------------------------------------
   // Resolves when the order email was accepted; throws otherwise.
+  async function postJson(url, payload) {
+    const res = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "Accept": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || data.success === "false" || data.success === false) throw new Error(data.message || "Send failed");
+  }
+
+  // Emails the order to BAKER_EMAIL through FormSubmit.
+  function sendViaFormSubmit(subject, text, customerEmail) {
+    return postJson(`https://formsubmit.co/ajax/${encodeURIComponent(BAKER_EMAIL)}`, {
+      _subject: subject,
+      _replyto: customerEmail,
+      _template: "box",
+      _captcha: "false",
+      Order: text,
+    });
+  }
+
   async function sendOrder(subject, text) {
     const customerName = $("name").value.trim();
     const customerEmail = $("email").value.trim();
-    let res;
-    if (SEND_METHOD === "web3forms") {
-      if (!WEB3FORMS_ACCESS_KEY) throw new Error("No Web3Forms access key set");
-      res = await fetch("https://api.web3forms.com/submit", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "Accept": "application/json" },
-        body: JSON.stringify({
-          access_key: WEB3FORMS_ACCESS_KEY,
-          subject,
-          from_name: "Make It Count Goodies Order Form",
-          name: customerName,
-          email: customerEmail,      // Web3Forms uses this as the reply-to address
-          message: text,
-        }),
-      });
-    } else {
-      res = await fetch(`https://formsubmit.co/ajax/${encodeURIComponent(BAKER_EMAIL)}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "Accept": "application/json" },
-        body: JSON.stringify({
-          _subject: subject,
-          _replyto: customerEmail,
-          _template: "box",
-          _captcha: "false",
-          Order: text,
-        }),
-      });
-    }
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok || data.success === "false" || data.success === false) throw new Error(data.message || "Send failed");
+    if (SEND_METHOD !== "web3forms") return sendViaFormSubmit(subject, text, customerEmail);
+
+    if (!WEB3FORMS_ACCESS_KEY) throw new Error("No Web3Forms access key set");
+    // Best-effort copy straight to the baker; it arrives whenever FormSubmit is up,
+    // but the order only counts as sent if Web3Forms accepts it.
+    sendViaFormSubmit(subject, text, customerEmail).catch(() => {});
+    await postJson("https://api.web3forms.com/submit", {
+      access_key: WEB3FORMS_ACCESS_KEY,
+      subject,
+      from_name: "Make It Count Goodies Order Form",
+      name: customerName,
+      email: customerEmail,      // Web3Forms uses this as the reply-to address
+      message: text,
+    });
   }
 
   function showMsg(text, ok) {
