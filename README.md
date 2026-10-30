@@ -30,7 +30,8 @@ Rows with no name or price are skipped, and only people the sheet is shared with
 Everything else is in the **BAKER SETTINGS** block at the top of `index.html`:
 
 - `BAKER_EMAIL` – where orders are sent
-- `SEND_METHOD` – `"formsubmit"` (sent from the page via FormSubmit.co) or `"mailto"` (opens the customer's email app)
+- `SEND_METHOD` – `"web3forms"` (sent via Web3Forms.com to the address the access key was created for, plus a best-effort FormSubmit copy to `BAKER_EMAIL`), `"formsubmit"` (sent from the page via FormSubmit.co) or `"mailto"` (opens the customer's email app)
+- `WEB3FORMS_ACCESS_KEY` – the key from web3forms.com (public by design; safe to commit)
 - `MENU` – backup menu, one line per item
 - `MISSION`, `NOTE_AT_TOP` – the text under the company name
 
