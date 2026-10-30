@@ -13,11 +13,17 @@
 const BAKER_EMAIL = "galaxygoodies420@gmail.com";
 
 // How orders are sent:
+//   "web3forms"  – sends straight from the page via Web3Forms.com (free). Needs the
+//                  access key emailed to BAKER_EMAIL by web3forms.com (below).
 //   "formsubmit" – sends straight from the page via FormSubmit.co (free, no account).
 //                  The very first order triggers a one-time "Activate" email to
 //                  BAKER_EMAIL; click it and every order after that arrives normally.
 //   "mailto"     – opens the customer's own email app with the order filled in.
 const SEND_METHOD = "formsubmit";
+
+// Web3Forms access key (only used when SEND_METHOD is "web3forms"). Orders go to
+// the email address the key was created for.
+const WEB3FORMS_ACCESS_KEY = "";
 
 // Google Sheet menu (recommended). Paste the sheet's "Publish to web" CSV link
 // between the quotes and the menu below is replaced by whatever is in the sheet.
@@ -413,6 +419,43 @@ const NOTE_AT_TOP ="Orders are for adults 21+ only. We'll confirm your order and
     $("discountBox").hidden = true;
   }
 
+  // --- Sending -----------------------------------------------------------
+  // Resolves when the order email was accepted; throws otherwise.
+  async function sendOrder(subject, text) {
+    const customerName = $("name").value.trim();
+    const customerEmail = $("email").value.trim();
+    let res;
+    if (SEND_METHOD === "web3forms") {
+      if (!WEB3FORMS_ACCESS_KEY) throw new Error("No Web3Forms access key set");
+      res = await fetch("https://api.web3forms.com/submit", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Accept": "application/json" },
+        body: JSON.stringify({
+          access_key: WEB3FORMS_ACCESS_KEY,
+          subject,
+          from_name: "Make It Count Goodies Order Form",
+          name: customerName,
+          email: customerEmail,      // Web3Forms uses this as the reply-to address
+          message: text,
+        }),
+      });
+    } else {
+      res = await fetch(`https://formsubmit.co/ajax/${encodeURIComponent(BAKER_EMAIL)}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Accept": "application/json" },
+        body: JSON.stringify({
+          _subject: subject,
+          _replyto: customerEmail,
+          _template: "box",
+          _captcha: "false",
+          Order: text,
+        }),
+      });
+    }
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || data.success === "false" || data.success === false) throw new Error(data.message || "Send failed");
+  }
+
   function showMsg(text, ok) {
     $("msg").textContent = text;
     $("msg").className = "msg " + (ok ? "ok" : "err");
@@ -458,19 +501,7 @@ const NOTE_AT_TOP ="Orders are for adults 21+ only. We'll confirm your order and
     const btn = $("submitBtn");
     btn.disabled = true; btn.textContent = "Sending…";
     try {
-      const res = await fetch(`https://formsubmit.co/ajax/${encodeURIComponent(BAKER_EMAIL)}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "Accept": "application/json" },
-        body: JSON.stringify({
-          _subject: subject,
-          _replyto: $("email").value.trim(),
-          _template: "box",
-          _captcha: "false",
-          Order: text,
-        }),
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok || data.success === "false" || data.success === false) throw new Error(data.message || "Send failed");
+      await sendOrder(subject, text);
       $("orderForm").reset();
       codeApplied = false;
       $("codeStatus").textContent = "";
@@ -479,7 +510,7 @@ const NOTE_AT_TOP ="Orders are for adults 21+ only. We'll confirm your order and
     } catch (err) {
       if (/activat/i.test(err.message))
         return showMsg("Form not activated yet — check " + BAKER_EMAIL + " for the 'Activate Form' email from FormSubmit.");
-      // FormSubmit is down or unreachable: let the customer email the order themselves
+      // The send service is down or unreachable: let the customer email the order themselves
       // so it isn't lost.
       showMsg("Sorry, our order system isn't responding right now. You can email your order to us instead — everything is already filled in, just hit Send.");
       const fallback = document.createElement("a");
