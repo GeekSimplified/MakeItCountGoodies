@@ -156,6 +156,11 @@ const NOTE_AT_TOP ="Orders are for adults 21+ only. We'll confirm your order and
   .msg.err { color: var(--warn); }
   .msg.ok { color: var(--accent); }
   .msg a { color: inherit; }
+  .msg a.fallback-btn {
+    display: block; margin: 12px auto 0; padding: 12px; max-width: 320px; border-radius: 10px;
+    background: var(--accent); color: var(--accent-ink); text-decoration: none; font-weight: 700;
+  }
+  .fallback-addr { margin-top: 8px; color: var(--muted); font-weight: 400; font-size: .9rem; }
   .thanks { margin-top: 4px; padding: 18px; border: 1px solid var(--accent); border-radius: 12px; background: var(--card); font-weight: 400; }
   .thanks p { margin: 0; }
   .thanks-title { font-size: 1.1rem; font-weight: 700; color: var(--ink); }
@@ -443,9 +448,10 @@ const NOTE_AT_TOP ="Orders are for adults 21+ only. We'll confirm your order and
     const text = buildOrderText();
     const amount = money(total());   // saved now – the form is cleared after sending
     const subject = `Order from ${$("name").value.trim()} — ${amount}`;
+    const mailtoUrl = `mailto:${BAKER_EMAIL}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(text)}`;
 
     if (SEND_METHOD === "mailto") {
-      location.href = `mailto:${BAKER_EMAIL}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(text)}`;
+      location.href = mailtoUrl;
       return showMsg("Your email app should open with the order — just hit Send.", true);
     }
 
@@ -473,7 +479,17 @@ const NOTE_AT_TOP ="Orders are for adults 21+ only. We'll confirm your order and
     } catch (err) {
       if (/activat/i.test(err.message))
         return showMsg("Form not activated yet — check " + BAKER_EMAIL + " for the 'Activate Form' email from FormSubmit.");
-      showMsg("Sorry, the order couldn't be sent. Please try again or contact us directly.");
+      // FormSubmit is down or unreachable: let the customer email the order themselves
+      // so it isn't lost.
+      showMsg("Sorry, our order system isn't responding right now. You can email your order to us instead — everything is already filled in, just hit Send.");
+      const fallback = document.createElement("a");
+      fallback.className = "fallback-btn";
+      fallback.href = mailtoUrl;
+      fallback.textContent = "Email my order instead";
+      const addr = document.createElement("div");
+      addr.className = "fallback-addr";
+      addr.textContent = `Or send it to ${BAKER_EMAIL}. Your total is ${amount}.`;
+      $("msg").append(fallback, addr);
     } finally {
       btn.disabled = false; btn.textContent = "Submit Order";
     }
