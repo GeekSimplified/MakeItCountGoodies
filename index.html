@@ -66,6 +66,9 @@ const THANK_YOU_MESSAGE = `💜 THANK YOU FROM THE BOTTOM OF MY SPACEY LITTLE HE
 Every single order means so much to me! 🥹✨ Thank you for supporting my little dream, believing in Make It Count Goodies, and letting me share a little homemade happiness with you! 🍪🍭🪐`;
 const MISSION = "Make It Count Goodies was born from my love of homemade treats, good vibes, and knowing just how precious life really is. As a two-time cancer survivor, I know firsthand that every moment counts. I'm here to spread love, lift spirits, satisfy the advanced space cadet, and turn my passion into a way to give back to the cancer community. Homemade with heart, loaded with hippie calories, and made to make every bite count.";
 const NOTE_AT_TOP ="Orders are for adults 21+ only. We'll confirm your order and total by email.";
+// Shown in a box under the note above. Leave blank ("") to hide it.
+const DISCLAIMER_TITLE = "⚠️ Edible Disclaimer:";
+const DISCLAIMER = "Know your tolerance. Respect your tolerance. Do not let your ego negotiate with your tolerance. Edibles have a reputation for arriving fashionably late, so take it easy and give them time. You can always have more later. You cannot uneat the edible.";
 
 /* ===================================================================== */
 </script>
@@ -95,6 +98,10 @@ const NOTE_AT_TOP ="Orders are for adults 21+ only. We'll confirm your order and
   header .logo { display: block; margin: 0 auto; width: min(360px, 85vw); height: auto; }
   header p { margin: 6px 0 0; color: var(--muted); }
   header p.mission { margin: 14px auto 16px; max-width: 560px; color: var(--ink); font-style: italic; line-height: 1.6; }
+  .disclaimer { margin: 16px auto 0; max-width: 560px; padding: 12px 16px; border: 1px solid var(--accent); border-radius: 8px; }
+  .disclaimer[hidden] { display: none; }
+  header .disclaimer p { margin: 0; color: var(--ink); line-height: 1.5; }
+  header .disclaimer p.disclaimer-title { margin-bottom: 4px; font-weight: 700; }
   section {
     background: var(--card);
     border: 1px solid var(--line);
@@ -182,6 +189,10 @@ const NOTE_AT_TOP ="Orders are for adults 21+ only. We'll confirm your order and
     <h1><img class="logo" src="logo.jpg" width="800" height="800" alt="Make It Count Goodies – Whatever That Means To You! Cannabis-infused treats"></h1>
     <p class="mission" id="mission"></p>
     <p id="topNote"></p>
+    <div class="disclaimer" id="disclaimer">
+      <p class="disclaimer-title" id="disclaimerTitle"></p>
+      <p id="disclaimerText"></p>
+    </div>
   </header>
 
   <form id="orderForm" novalidate>
@@ -240,6 +251,9 @@ const NOTE_AT_TOP ="Orders are for adults 21+ only. We'll confirm your order and
 
   $("mission").textContent = MISSION;
   $("topNote").textContent = NOTE_AT_TOP;
+  $("disclaimerTitle").textContent = DISCLAIMER_TITLE;
+  $("disclaimerText").textContent = DISCLAIMER;
+  $("disclaimer").hidden = !DISCLAIMER;
   $("venmoLink").href = $("venmoQr").href = VENMO_URL;
   if (SHIPPING_FLAT_RATE > 0) $("shipNote").textContent = `Flat Rate Shipping on all items: ${money(SHIPPING_FLAT_RATE)}`;
   else $("shipNote").hidden = true;
