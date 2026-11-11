@@ -148,6 +148,8 @@ const NOTE_AT_TOP ="Orders are for adults 21+ only. We'll confirm your order and
   .subline[hidden] { display: none; }
   #discountBox { margin-bottom: 12px; }
   #discountBox label { margin-top: 0; }
+  #codeEntry { margin-top: 8px; }
+  #codeEntry[hidden] { display: none; }
   .code-status { min-height: 1.2em; margin-top: 4px; font-size: .9rem; }
   .code-status.ok { color: var(--accent); }
   .code-status.err { color: var(--warn); }
@@ -216,9 +218,12 @@ const NOTE_AT_TOP ="Orders are for adults 21+ only. We'll confirm your order and
     <section>
       <div class="summary" id="summary">No items selected yet.</div>
       <div id="discountBox">
-        <label for="code">Discount code</label>
-        <input id="code" type="text" autocomplete="off" autocapitalize="off" spellcheck="false">
-        <div class="code-status" id="codeStatus"></div>
+        <label class="check"><input id="hasCode" type="checkbox"> I have a discount code</label>
+        <div id="codeEntry" hidden>
+          <label for="code">Discount code</label>
+          <input id="code" type="text" autocomplete="off" autocapitalize="off" spellcheck="false">
+          <div class="code-status" id="codeStatus"></div>
+        </div>
       </div>
       <div class="subline"><span>Subtotal</span><span id="subtotal">$0.00</span></div>
       <div class="subline discount-line" id="discountLine" hidden><span id="discountLabel">Discount</span><span id="discount">−$0.00</span></div>
@@ -424,6 +429,13 @@ const NOTE_AT_TOP ="Orders are for adults 21+ only. We'll confirm your order and
   }
   const activeCodes = DISCOUNT_CODES.filter(c => c.percent > 0);
   if (activeCodes.length) {
+    // The code box only shows once they tick "I have a discount code"; unticking drops the code.
+    $("hasCode").checked = false;   // browsers can restore a ticked box on reload
+    $("hasCode").addEventListener("change", () => {
+      $("codeEntry").hidden = !$("hasCode").checked;
+      if ($("hasCode").checked) $("code").focus();
+      else { $("code").value = ""; checkCode(); }
+    });
     $("code").addEventListener("input", checkCode);
     // Enter in the code box applies the code instead of submitting the order
     $("code").addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); checkCode(); } });
@@ -522,6 +534,7 @@ const NOTE_AT_TOP ="Orders are for adults 21+ only. We'll confirm your order and
       $("orderForm").reset();
       codeApplied = null;
       $("codeStatus").textContent = "";
+      $("codeEntry").hidden = true;
       menu.forEach((it, i) => { if (!it.soldOut) setQty(i, 0); });
       showThanks(amount);
     } catch (err) {
