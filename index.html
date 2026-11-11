@@ -53,12 +53,16 @@ const CURRENCY = "$";
 const MAX_QTY_PER_ITEM = 20;
 const SHIPPING_FLAT_RATE = 16;   // added once to every order; set to 0 for free shipping
 
-// Discount code – takes DISCOUNT_PERCENT off the items (not shipping).
-// The code itself isn't written here, only its SHA-256 fingerprint, so it can't be
-// read from the page source. To change the code, ask your web person for a new
-// fingerprint (lowercase code, no spaces). Set DISCOUNT_PERCENT to 0 to turn it off.
-const DISCOUNT_PERCENT = 0;
-const DISCOUNT_CODE_SHA256 = "e690648d4611d4dfab89ca9552b8895a39317631ece35cd00c2553c63127d580";
+// Discount codes. The codes themselves aren't written here, only their SHA-256
+// fingerprints, so they can't be read from the page source. Codes ignore upper/lower
+// case and spaces. To add or change a code, ask your web person for a new fingerprint.
+//   percent – how much comes off; set it to 0 to turn that code off
+//   of      – "items" (items only, not shipping) or "order" (items + shipping)
+// The discount box is hidden when every code is off.
+const DISCOUNT_CODES = [
+  { percent: 0,  of: "items", sha256: "e690648d4611d4dfab89ca9552b8895a39317631ece35cd00c2553c63127d580" },
+  { percent: 15, of: "order", sha256: "21ef4f7013af7e86d8c5c5b597db1dd34dd1adf85d5bd518cabf41f880272ca4" },
+];
 const VENMO_URL = "https://account.venmo.com/u/Angela-Pedersen-15";
 
 // Shown after an order is sent. The first line is shown as a heading.
@@ -236,7 +240,7 @@ const NOTE_AT_TOP ="Orders are for adults 21+ only. We'll confirm your order and
   const money = n => CURRENCY + n.toFixed(2);
   let menu = MENU;
   let qtys = [];
-  let codeApplied = false;
+  let codeApplied = null;   // the matching DISCOUNT_CODES entry, once a valid code is typed
 
   $("mission").textContent = MISSION;
   $("topNote").textContent = NOTE_AT_TOP;
@@ -352,7 +356,9 @@ const NOTE_AT_TOP ="Orders are for adults 21+ only. We'll confirm your order and
     return lines().length ? SHIPPING_FLAT_RATE : 0;
   }
   function discount() {
-    return codeApplied ? Math.round(subtotal() * DISCOUNT_PERCENT) / 100 : 0;
+    if (!codeApplied) return 0;
+    const base = codeApplied.of === "order" ? subtotal() + shipping() : subtotal();
+    return Math.round(base * codeApplied.percent) / 100;
   }
   function total() {
     return subtotal() - discount() + shipping();
@@ -361,6 +367,7 @@ const NOTE_AT_TOP ="Orders are for adults 21+ only. We'll confirm your order and
     const l = lines();
     $("subtotal").textContent = money(subtotal());
     $("discountLine").hidden = !codeApplied;
+    if (codeApplied) $("discountLabel").textContent = `Discount (${codeApplied.percent}%)`;
     $("discount").textContent = "−" + money(discount());
     $("shipping").textContent = money(shipping());
     $("total").textContent = money(total());
@@ -378,7 +385,7 @@ const NOTE_AT_TOP ="Orders are for adults 21+ only. We'll confirm your order and
       ...l.map(x => `  ${x.q} × ${x.it.name} (${x.it.unit || "each"}, ${x.it.dose || "—"}) @ ${money(x.it.price)} = ${money(x.q * x.it.price)}`),
       "",
       `Subtotal:           ${money(subtotal())}`,
-      ...(codeApplied ? [`Discount (${DISCOUNT_PERCENT}%, code "${$("code").value.trim()}"): −${money(discount())}`] : []),
+      ...(codeApplied ? [`Discount (${codeApplied.percent}% off ${codeApplied.of === "order" ? "order" : "items"}, code "${$("code").value.trim()}"): −${money(discount())}`] : []),
       `Flat rate shipping: ${money(shipping())}`,
       `ESTIMATED TOTAL:    ${money(total())}`,
       "",
@@ -405,15 +412,18 @@ const NOTE_AT_TOP ="Orders are for adults 21+ only. We'll confirm your order and
   async function checkCode() {
     const typed = $("code").value;
     const normalized = typed.trim().toLowerCase().replace(/\s+/g, "");
-    const ok = !!normalized && (await sha256(normalized)) === DISCOUNT_CODE_SHA256;
+    const hash = normalized ? await sha256(normalized) : "";
     if ($("code").value !== typed) return;   // they kept typing; a newer check will finish
-    codeApplied = ok;
-    $("codeStatus").textContent = ok ? `✓ ${DISCOUNT_PERCENT}% off your items` : normalized ? "That code isn't valid." : "";
-    $("codeStatus").className = "code-status " + (ok ? "ok" : "err");
+    const match = activeCodes.find(c => c.sha256 === hash) || null;
+    codeApplied = match;
+    $("codeStatus").textContent = match
+      ? `✓ ${match.percent}% off your ${match.of === "order" ? "whole order (including shipping)" : "items"}`
+      : normalized ? "That code isn't valid." : "";
+    $("codeStatus").className = "code-status " + (match ? "ok" : "err");
     refresh();
   }
-  if (DISCOUNT_PERCENT > 0) {
-    $("discountLabel").textContent = `Discount (${DISCOUNT_PERCENT}%)`;
+  const activeCodes = DISCOUNT_CODES.filter(c => c.percent > 0);
+  if (activeCodes.length) {
     $("code").addEventListener("input", checkCode);
     // Enter in the code box applies the code instead of submitting the order
     $("code").addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); checkCode(); } });
@@ -510,7 +520,7 @@ const NOTE_AT_TOP ="Orders are for adults 21+ only. We'll confirm your order and
     try {
       await sendOrder(subject, text);
       $("orderForm").reset();
-      codeApplied = false;
+      codeApplied = null;
       $("codeStatus").textContent = "";
       menu.forEach((it, i) => { if (!it.soldOut) setQty(i, 0); });
       showThanks(amount);
